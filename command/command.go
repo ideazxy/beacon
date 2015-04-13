@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-etcd/etcd"
@@ -131,7 +132,7 @@ func (c *Command) stopContainer(client *docker.Client) ([]*register.Instance, er
 		}
 
 		var id string
-		if c.Name != "" && container.ID == c.Name {
+		if c.Name != "" && strings.HasPrefix(container.ID, c.Name) {
 			id = container.ID
 		} else if container.Image == c.Image {
 			id = container.ID

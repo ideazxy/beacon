@@ -30,10 +30,12 @@ func AddService(client *etcd.Client, s *Service) error {
 		return err
 	}
 
-	k = basekey + "/host"
-	log.Println("Set key: [", k, "], value: [", s.Listen, "]")
-	if _, err := client.Set(k, s.Listen, 0); err != nil {
-		return err
+	if s.Host != "" {
+		k = basekey + "/host"
+		log.Println("Set key: [", k, "], value: [", s.Host, "]")
+		if _, err := client.Set(k, s.Host, 0); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -20,7 +20,7 @@ func NewStartCmd() cli.Command {
 			cli.StringSliceFlag{Name: "volume, v", Value: &cli.StringSlice{}, Usage: "bind mount a volumn"},
 			cli.StringFlag{Name: "service", Value: "", Usage: "set service name"},
 			cli.StringFlag{Name: "proto", Value: "", Usage: "set service protocol, 'tcp' or 'http'"},
-			cli.StringFlag{Name: "cluster", Value: "", Usage: "set cluster name the service belong"},
+			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name the service belong"},
 			cli.StringFlag{Name: "listen", Value: "", Usage: "set port this container listens"},
 			cli.StringSliceFlag{Name: "target", Value: &cli.StringSlice{}, Usage: "set who will receive this command"},
 			cli.BoolFlag{Name: "local", Usage: "start a local container, and then register it"},

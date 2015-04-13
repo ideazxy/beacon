@@ -26,8 +26,9 @@ func AddInstance(client *etcd.Client, i *Instance) error {
 	}
 
 	k := basekey + "/listen"
-	log.Println("Set key: [", k, "], value: [", i.Listen, "]")
-	if _, err := client.Set(k, i.Listen, 0); err != nil {
+	v := fmt.Sprintf("%s:%s", i.Ip, strings.TrimPrefix(i.Listen, ":"))
+	log.Println("Set key: [", k, "], value: [", v, "]")
+	if _, err := client.Set(k, v, 0); err != nil {
 		return err
 	}
 

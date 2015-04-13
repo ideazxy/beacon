@@ -1,0 +1,4 @@
+interval = 15
+debug = true
+verbose = false
+quiet = false
