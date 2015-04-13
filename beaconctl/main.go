@@ -19,6 +19,8 @@ func main() {
 	app.Commands = []cli.Command{
 		function.NewRegisterCmd(),
 		function.NewUnregisterCmd(),
+		function.NewStartCmd(),
+		function.NewStopCmd(),
 	}
 
 	app.Run(os.Args)

@@ -17,13 +17,6 @@ type Service struct {
 	Prefix  string // prefix for etcd key
 }
 
-type Instance struct {
-	Name    string
-	Service string
-	Listen  string
-	Prefix  string
-}
-
 func AddService(client *etcd.Client, s *Service) error {
 	basekey := fmt.Sprintf("/beacon/registry/%s/%s/%s",
 		s.Cluster, s.Proto, s.Name)
