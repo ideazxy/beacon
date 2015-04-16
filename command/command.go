@@ -38,10 +38,13 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 		if err != nil {
 			return err
 		}
-		instance.Ip = hostIp
-		instance.Prefix = prefix
-		if err = c.register(etcdClient, instance); err != nil {
-			return err
+
+		if c.Service != "" {
+			instance.Ip = hostIp
+			instance.Prefix = prefix
+			if err = register.AddInstance(etcdClient, instance); err != nil {
+				return err
+			}
 		}
 
 	case "remove":
@@ -49,13 +52,15 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 		if err != nil {
 			return err
 		}
-		for _, instance := range instances {
-			instance.Prefix = prefix
-			if err = c.unregister(etcdClient, instance); err != nil {
-				return err
+		if c.Service != "" {
+			for _, instance := range instances {
+				instance.Prefix = prefix
+				if err = register.RemoveInstance(etcdClient, instance); err != nil {
+					return err
+				}
 			}
+			log.Printf("unregister %d instances.\n", len(instances))
 		}
-		log.Printf("unregister %d instances.\n", len(instances))
 
 	default:
 		return errors.New("unknown type")
@@ -113,8 +118,12 @@ func (c *Command) runContainer(client *docker.Client) (*register.Instance, error
 		Service: c.Service,
 		Cluster: c.Cluster,
 		Proto:   c.Proto,
-		Listen:  container.NetworkSettings.Ports[docker.Port(c.Listen+"/tcp")][0].HostPort,
 	}
+	exportList, ok := container.NetworkSettings.Ports[docker.Port(c.Listen+"/tcp")]
+	if !ok || len(exportList) < 1 {
+		return nil, errors.New("the port to listen not found")
+	}
+	instance.Listen = exportList[0].HostPort
 	return instance, nil
 }
 
@@ -157,14 +166,6 @@ func (c *Command) stopContainer(client *docker.Client) ([]*register.Instance, er
 		stopped = append(stopped, instance)
 	}
 	return stopped, nil
-}
-
-func (c *Command) register(client *etcd.Client, ins *register.Instance) error {
-	return register.AddInstance(client, ins)
-}
-
-func (c *Command) unregister(client *etcd.Client, ins *register.Instance) error {
-	return register.RemoveInstance(client, ins)
 }
 
 func (c *Command) Marshal() string {

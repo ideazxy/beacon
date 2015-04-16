@@ -133,8 +133,6 @@ func main() {
 
 				remove(etcdClient, c.Id)
 			}
-		} else if debug {
-			log.Println("No more command to be processd.")
 		}
 
 		time.Sleep(time.Duration(interval) * time.Second)

@@ -18,8 +18,8 @@ func NewStopCmd() cli.Command {
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "id", Usage: "set container id"},
 			cli.StringFlag{Name: "image", Usage: "set image name"},
-			cli.StringFlag{Name: "service", Value: "", Usage: "set service name"},
-			cli.StringFlag{Name: "proto", Value: "", Usage: "set service protocol, 'tcp' or 'http'"},
+			cli.StringFlag{Name: "service", Usage: "set service name"},
+			cli.StringFlag{Name: "proto", Value: "tcp", Usage: "set service protocol, 'tcp' or 'http'"},
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name this service belong"},
 			cli.StringSliceFlag{Name: "target", Value: &cli.StringSlice{}, Usage: "set who will receive this command"},
 			cli.BoolFlag{Name: "local", Usage: "stop a local container, and then register it"},
