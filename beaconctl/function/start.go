@@ -23,6 +23,9 @@ func NewStartCmd() cli.Command {
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name the service belong"},
 			cli.StringFlag{Name: "listen", Usage: "set port this container listens"},
 			cli.StringSliceFlag{Name: "target", Value: &cli.StringSlice{}, Usage: "set who will receive this command"},
+			cli.StringFlag{Name: "username", Usage: "set username for docker registry"},
+			cli.StringFlag{Name: "password", Usage: "set password for docker registry"},
+			cli.StringFlag{Name: "email", Usage: "set email for docker registry"},
 			cli.BoolFlag{Name: "local", Usage: "start a local container, and then register it"},
 			cli.BoolFlag{Name: "tls", Usage: "set tls mode for docker daemon"},
 			cli.StringFlag{Name: "cert", Usage: "set cert directory for docker daemon"},
@@ -40,15 +43,18 @@ func start(c *cli.Context, client *etcd.Client) {
 		log.Fatalln("image name is required!")
 	}
 	cmd := &command.Command{
-		Id:      time.Now().Format("20060102030405"),
-		Type:    "add",
-		Image:   c.Args()[0],
-		Env:     c.StringSlice("env"),
-		Vol:     c.StringSlice("volume"),
-		Listen:  c.String("listen"),
-		Service: c.String("service"),
-		Cluster: c.String("cluster"),
-		Proto:   c.String("proto"),
+		Id:          time.Now().Format("20060102030405"),
+		Type:        "add",
+		Image:       c.Args()[0],
+		Env:         c.StringSlice("env"),
+		Vol:         c.StringSlice("volume"),
+		Listen:      c.String("listen"),
+		Service:     c.String("service"),
+		Cluster:     c.String("cluster"),
+		Proto:       c.String("proto"),
+		DockerUser:  c.String("username"),
+		DockerPswd:  c.String("password"),
+		DockerEmail: c.String("email"),
 	}
 	if len(c.Args()) > 1 {
 		cmd.Cmd = c.Args()[1:]
