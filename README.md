@@ -1,6 +1,10 @@
 # beacon
 A lightweight service register/discovery framework.
 
+[![Build Status](https://travis-ci.org/ideazxy/beacon.svg)](https://travis-ci.org/ideazxy/beacon)
+
+## Introduction
+
 Beacon mainly does three things:
 * run or stop docker container on cluster;
 * register or unregister container as a instance of the service;
