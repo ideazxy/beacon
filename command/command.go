@@ -106,7 +106,7 @@ outer:
 	for _, image := range imageList {
 		for _, name := range image.RepoTags {
 			if c.Image == name {
-				log.Infoln("image already exists.")
+				log.Debugln("image already exists.")
 				exist = true
 				break outer
 			}
@@ -146,6 +146,9 @@ outer:
 	if err != nil {
 		return nil, err
 	}
+	log.WithFields(log.Fields{
+		"id": container.ID,
+	}).Infoln("a new container is created.")
 	if log.GetLevel() >= log.DebugLevel {
 		b, err := json.Marshal(container)
 		if err != nil {
@@ -163,9 +166,9 @@ outer:
 	if err != nil {
 		return nil, err
 	}
-	log.Debugln("start container: ", container.ID)
+	log.Infoln("container is started")
 
-	log.Infoln("wait 10 seconds...")
+	log.Infoln("wait 10 seconds to check status...")
 	time.Sleep(10 * time.Second)
 
 	container, err = client.InspectContainer(container.ID)
@@ -173,8 +176,7 @@ outer:
 		return nil, err
 	}
 	if !container.State.Running {
-		log.Warnln("container is not running!")
-		return nil, errors.New("container not running")
+		return nil, errors.New("container is not running")
 	}
 	log.WithFields(log.Fields{
 		"Id":     container.ID,

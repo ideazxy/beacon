@@ -2,9 +2,9 @@ package function
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
@@ -42,4 +42,26 @@ func etcdClient(c *cli.Context) *etcd.Client {
 		log.Fatalln("etcd endpoints (nodes) is required!")
 	}
 	return etcd.NewClient(strings.Split(nodes, ","))
+}
+
+func fetchHosts(c *cli.Context, client *etcd.Client) []string {
+	key := fmt.Sprintf("/beacon/cluster/%s", c.String("cluster"))
+	if c.GlobalString("prefix") != "" {
+		key = fmt.Sprintf("/%s%s", strings.Trim(c.GlobalString("prefix"), "/"), key)
+	}
+	resp, err := client.Get(key, false, false)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"key":   key,
+			"error": err.Error(),
+		}).Warningln("failed to fetch cluster info.")
+		return nil
+	}
+	hosts := make([]string, 0, len(resp.Node.Nodes))
+	for _, node := range resp.Node.Nodes {
+		log.Debugln("find host:", node.Key)
+		parts := strings.Split(node.Key, "/")
+		hosts = append(hosts, parts[len(parts)-1])
+	}
+	return hosts
 }

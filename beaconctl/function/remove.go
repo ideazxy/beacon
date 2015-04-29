@@ -40,5 +40,5 @@ func remove(c *cli.Context, client *etcd.Client) {
 	if err := register.RemoveInstance(client, instance); err != nil {
 		log.Fatalln(err.Error())
 	}
-	fmt.Printf("unregistered a new instance [%s] to service [%s]", instance.Name, instance.Service)
+	fmt.Printf("unregistered a new instance [%s] to service [%s]\n", instance.Name, instance.Service)
 }

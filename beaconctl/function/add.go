@@ -40,5 +40,5 @@ func add(c *cli.Context, client *etcd.Client) {
 	if err := register.AddInstance(client, instance); err != nil {
 		log.Fatalln(err.Error())
 	}
-	fmt.Printf("registered a new instance [%s] to service [%s]", instance.Name, instance.Service)
+	fmt.Printf("registered a new instance [%s] to service [%s]\n", instance.Name, instance.Service)
 }

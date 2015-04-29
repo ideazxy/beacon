@@ -2,10 +2,10 @@ package function
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/ideazxy/beacon/command"
@@ -50,23 +50,27 @@ func stop(c *cli.Context, client *etcd.Client) {
 		}
 	}
 
-	if c.GlobalBool("debug") {
-		log.Println("generate a new command: ", cmd.Marshal())
-	}
+	log.Infoln("generate a new command: ", cmd.Marshal())
 
 	if c.Bool("local") {
-		if c.GlobalBool("debug") {
-			log.Println("just stop container on local host")
-		}
+		log.Infoln("just start container on local host")
 		if err := cmd.Process(dockerClient(c), etcdClient(c), c.String("host"), c.GlobalString("prefix")); err != nil {
-			log.Fatalln(err.Error())
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Fatalln("execute command failed.")
 		}
 		return
 	}
 
 	targets := c.StringSlice("target")
 	if targets == nil || len(targets) == 0 {
-		log.Fatalln("at least one target should be set!")
+		log.Warningln("no target set! try to send command to all registered host.")
+		targets = fetchHosts(c, client)
+	}
+	if targets == nil {
+		log.Fatalln("no target to send command.")
+	} else {
+		log.Infoln("send command to: ", targets)
 	}
 	for _, target := range targets {
 		key := fmt.Sprintf("/beacon/commands/single/%s/%s/",
@@ -76,7 +80,9 @@ func stop(c *cli.Context, client *etcd.Client) {
 		}
 
 		if _, err := client.Set(key, cmd.Marshal(), 0); err != nil {
-			log.Fatalln(err.Error())
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Fatalln("send command failed.")
 		}
 	}
 }
