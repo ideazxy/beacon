@@ -1,4 +1,3 @@
-interval = 15
-debug = true
-verbose = false
-quiet = false
+interval = 60
+backend = "etcd"
+log-level = "debug"

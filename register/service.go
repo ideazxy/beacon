@@ -1,6 +1,7 @@
 package register
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -13,7 +14,8 @@ type Service struct {
 	Proto   string
 	Cluster string
 	Listen  string
-	Host    string
+	Backend string
+	Hosts   []string
 	Prefix  string // prefix for etcd key
 }
 
@@ -30,22 +32,34 @@ func AddService(client *etcd.Client, s *Service) error {
 		return err
 	}
 
-	if s.Host != "" {
-		k = basekey + "/host"
-		log.Println("Set key: [", k, "], value: [", s.Host, "]")
-		if _, err := client.Set(k, s.Host, 0); err != nil {
-			return err
+	if s.Proto == "http" {
+		if s.Backend == "" {
+			return errors.New("backend name is required.")
+		}
+		hostDir := fmt.Sprintf("%s/backends/%s/hosts", basekey, s.Backend)
+		if s.Hosts != nil {
+			for _, host := range s.Hosts {
+				if _, err := client.Set(fmt.Sprintf("%s/%s", hostDir, host), "", 0); err != nil {
+					return err
+				}
+			}
 		}
 	}
-
 	return nil
 }
 
 func RemoveService(client *etcd.Client, s *Service) error {
-	key := fmt.Sprintf("/beacon/registry/%s/%s/%s",
-		s.Cluster, s.Proto, s.Name)
+	basekey := fmt.Sprintf("/beacon/registry/%s/%s",
+		s.Cluster, s.Proto)
 	if s.Prefix != "" {
-		key = fmt.Sprintf("/%s%s", strings.Trim(s.Prefix, "/"), key)
+		basekey = fmt.Sprintf("/%s%s", strings.Trim(s.Prefix, "/"), basekey)
+	}
+
+	var key string
+	if s.Proto == "tcp" {
+		key = fmt.Sprintf("%s/%s", basekey, s.Name)
+	} else {
+		key = fmt.Sprintf("%s/%s/backends/%s", basekey, s.Name, s.Backend)
 	}
 
 	log.Println("Delete key: [", key, "]")

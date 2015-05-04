@@ -13,8 +13,9 @@ func NewUnregisterCmd() cli.Command {
 		Name:  "unregister",
 		Usage: "unregister a new service from etcd",
 		Flags: []cli.Flag{
-			cli.StringFlag{Name: "name", Value: "", Usage: "service name"},
-			cli.StringFlag{Name: "proto", Value: "", Usage: "'tcp' or 'http'"},
+			cli.StringFlag{Name: "name", Usage: "service name"},
+			cli.StringFlag{Name: "proto", Value: "tcp", Usage: "'tcp' or 'http'"},
+			cli.StringFlag{Name: "backend", Usage: "set backend name for http service"},
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "the target cluster this service register to"},
 		},
 		Action: func(c *cli.Context) {
@@ -26,6 +27,7 @@ func NewUnregisterCmd() cli.Command {
 func doUnregisterService(c *cli.Context, client *etcd.Client) {
 	service := &reg.Service{
 		Name:    c.String("name"),
+		Backend: c.String("backend"),
 		Proto:   c.String("proto"),
 		Cluster: c.String("cluster"),
 		Prefix:  c.GlobalString("prefix"),
