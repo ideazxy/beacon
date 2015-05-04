@@ -11,7 +11,7 @@ import (
 )
 
 func dockerClient(c *cli.Context) *docker.Client {
-	if c.String("daemon") == "" {
+	if c.String("docker") == "" {
 		log.Fatalln("daemon is required!")
 	}
 
@@ -25,11 +25,11 @@ func dockerClient(c *cli.Context) *docker.Client {
 		cer := fmt.Sprintf("%s/cert.pem", cert)
 		key := fmt.Sprintf("%s/key.pem", cert)
 		ca := fmt.Sprintf("%s/ca.pem", cert)
-		if client, err = docker.NewTLSClient(c.String("daemon"), cer, key, ca); err != nil {
+		if client, err = docker.NewTLSClient(c.String("docker"), cer, key, ca); err != nil {
 			log.Fatalln(err.Error())
 		}
 	} else {
-		if client, err = docker.NewClient(c.String("daemon")); err != nil {
+		if client, err = docker.NewClient(c.String("docker")); err != nil {
 			log.Fatalln(err.Error())
 		}
 	}

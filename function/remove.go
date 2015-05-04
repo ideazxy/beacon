@@ -6,13 +6,13 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/ideazxy/beacon/register"
+	reg "github.com/ideazxy/beacon/register"
 )
 
-func NewAddCmd() cli.Command {
+func NewRemoveCmd() cli.Command {
 	return cli.Command{
-		Name:  "add",
-		Usage: "register a started service instance.",
+		Name:  "remove",
+		Usage: "unregister a started service instance.",
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "name", Usage: "set service instance name"},
 			cli.StringFlag{Name: "service", Usage: "set service name"},
@@ -22,13 +22,13 @@ func NewAddCmd() cli.Command {
 			cli.StringFlag{Name: "host", Usage: "set host IP"},
 		},
 		Action: func(c *cli.Context) {
-			handle(c, add)
+			handle(c, doRemove)
 		},
 	}
 }
 
-func add(c *cli.Context, client *etcd.Client) {
-	instance := &register.Instance{
+func doRemove(c *cli.Context, client *etcd.Client) {
+	instance := &reg.Instance{
 		Name:    c.String("name"),
 		Service: c.String("service"),
 		Proto:   c.String("proto"),
@@ -37,8 +37,8 @@ func add(c *cli.Context, client *etcd.Client) {
 		Listen:  c.String("listen"),
 		Prefix:  c.GlobalString("prefix"),
 	}
-	if err := register.AddInstance(client, instance); err != nil {
+	if err := reg.RemoveInstance(client, instance); err != nil {
 		log.Fatalln(err.Error())
 	}
-	fmt.Printf("registered a new instance [%s] to service [%s]\n", instance.Name, instance.Service)
+	fmt.Printf("unregistered a new instance [%s] to service [%s]\n", instance.Name, instance.Service)
 }

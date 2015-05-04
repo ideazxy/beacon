@@ -5,7 +5,7 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/ideazxy/beacon/register"
+	reg "github.com/ideazxy/beacon/register"
 )
 
 func NewRegisterCmd() cli.Command {
@@ -20,13 +20,13 @@ func NewRegisterCmd() cli.Command {
 			cli.StringFlag{Name: "host", Value: "", Usage: "the host name this service watch"},
 		},
 		Action: func(c *cli.Context) {
-			handle(c, registerService)
+			handle(c, doRegisterService)
 		},
 	}
 }
 
-func registerService(c *cli.Context, client *etcd.Client) {
-	service := &register.Service{
+func doRegisterService(c *cli.Context, client *etcd.Client) {
+	service := &reg.Service{
 		Name:    c.String("name"),
 		Proto:   c.String("proto"),
 		Cluster: c.String("cluster"),
@@ -34,7 +34,7 @@ func registerService(c *cli.Context, client *etcd.Client) {
 		Host:    c.String("host"),
 		Prefix:  c.GlobalString("prefix"),
 	}
-	if err := register.AddService(client, service); err != nil {
+	if err := reg.AddService(client, service); err != nil {
 		log.Fatalln(err.Error())
 	}
 }

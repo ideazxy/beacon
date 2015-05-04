@@ -25,16 +25,16 @@ func NewStopCmd() cli.Command {
 			cli.BoolFlag{Name: "local", Usage: "stop a local container, and then register it"},
 			cli.BoolFlag{Name: "tls", Usage: "set tls mode for docker daemon"},
 			cli.StringFlag{Name: "cert", Usage: "set cert directory for docker daemon"},
-			cli.StringFlag{Name: "daemon", Usage: "set docker daemon for local mode"},
+			cli.StringFlag{Name: "docker", Usage: "set docker daemon for local mode"},
 			cli.StringFlag{Name: "host", Usage: "set host IP"},
 		},
 		Action: func(c *cli.Context) {
-			handle(c, stop)
+			handle(c, doStop)
 		},
 	}
 }
 
-func stop(c *cli.Context, client *etcd.Client) {
+func doStop(c *cli.Context, client *etcd.Client) {
 	cmd := &command.Command{
 		Id:      time.Now().Format("20060102030405"),
 		Type:    "remove",

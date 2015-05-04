@@ -5,7 +5,7 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/ideazxy/beacon/register"
+	reg "github.com/ideazxy/beacon/register"
 )
 
 func NewUnregisterCmd() cli.Command {
@@ -18,19 +18,19 @@ func NewUnregisterCmd() cli.Command {
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "the target cluster this service register to"},
 		},
 		Action: func(c *cli.Context) {
-			handle(c, unregisterService)
+			handle(c, doUnregisterService)
 		},
 	}
 }
 
-func unregisterService(c *cli.Context, client *etcd.Client) {
-	service := &register.Service{
+func doUnregisterService(c *cli.Context, client *etcd.Client) {
+	service := &reg.Service{
 		Name:    c.String("name"),
 		Proto:   c.String("proto"),
 		Cluster: c.String("cluster"),
 		Prefix:  c.GlobalString("prefix"),
 	}
-	if err := register.RemoveService(client, service); err != nil {
+	if err := reg.RemoveService(client, service); err != nil {
 		log.Fatalln(err.Error())
 	}
 }

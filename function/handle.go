@@ -6,6 +6,10 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
+var (
+	prefix string
+)
+
 type handlerFunc func(*cli.Context, *etcd.Client)
 
 func handle(c *cli.Context, fn handlerFunc) {
@@ -14,6 +18,8 @@ func handle(c *cli.Context, fn handlerFunc) {
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
+
+	prefix = c.GlobalString("prefix")
 
 	fn(c, etcdClient(c))
 }

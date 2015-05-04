@@ -1,197 +1,31 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"strings"
-	"time"
+	"os"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/coreos/go-etcd/etcd"
-	"github.com/fsouza/go-dockerclient"
-	"github.com/ideazxy/beacon/command"
+	"github.com/codegangsta/cli"
+	"github.com/ideazxy/beacon/function"
 )
-
-var (
-	name     string
-	cluster  string
-	ip       string
-	nodes    string
-	prefix   string
-	interval int
-	cert     string
-	daemon   string
-	tls      bool
-	debug    bool
-)
-
-func check(client *etcd.Client) []*command.Command {
-	key := fmt.Sprintf("/beacon/commands/single/%s/", name)
-	if prefix != "" {
-		key = fmt.Sprintf("/%s%s", strings.Trim(prefix, "/"), key)
-	}
-	resp, err := client.Get(key, true, true)
-	if err != nil {
-		log.Debugln(err.Error())
-		return nil
-	}
-
-	node := resp.Node
-	if !node.Dir {
-		log.Warningf("dirty data! [%s] should be a dir.\n", key)
-		return nil
-	}
-
-	cmds := make([]*command.Command, 0)
-	for _, n := range node.Nodes {
-		if n.Dir {
-			log.Warningf("dirty data! [%s] should be command value, dir got.\n", n.Key)
-			continue
-		}
-		log.WithFields(log.Fields{
-			"raw": n.Value,
-		}).Debugln("find a new command.")
-		var cmd command.Command
-		err := command.Unmarshal(n.Value, &cmd)
-		if err != nil {
-			log.Warningln(err.Error())
-			continue
-		}
-		cmds = append(cmds, &cmd)
-	}
-	return cmds
-}
-
-func remove(client *etcd.Client, id string) {
-	key := fmt.Sprintf("/beacon/commands/single/%s/%s", name, id)
-	if prefix != "" {
-		key = fmt.Sprintf("/%s%s", strings.Trim(prefix, "/"), key)
-	}
-	if _, err := client.Delete(key, true); err != nil {
-		log.WithFields(log.Fields{
-			"key":   key,
-			"error": err.Error(),
-		}).Fatalln("remove finished command failed.")
-	} else {
-		log.Infoln("command is removed.")
-	}
-}
-
-func dockerClient() (*docker.Client, error) {
-	var client *docker.Client
-	var err error
-	if tls {
-		cer := fmt.Sprintf("%s/cert.pem", cert)
-		key := fmt.Sprintf("%s/key.pem", cert)
-		ca := fmt.Sprintf("%s/ca.pem", cert)
-		if client, err = docker.NewTLSClient(daemon, cer, key, ca); err != nil {
-			return nil, err
-		}
-	} else {
-		if client, err = docker.NewClient(daemon); err != nil {
-			return nil, err
-		}
-	}
-	return client, nil
-}
-
-func register(client *etcd.Client) {
-	dir := fmt.Sprintf("/beacon/cluster/%s/%s", cluster, name)
-	if prefix != "" {
-		dir = fmt.Sprintf("/%s%s", strings.Trim(prefix, "/"), dir)
-	}
-	key := fmt.Sprintf("%s/ip", dir)
-	if _, err := client.CreateDir(dir, 5); err != nil {
-		log.WithFields(log.Fields{
-			"dir":   dir,
-			"error": err.Error(),
-		}).Fatalln("register host failed.")
-	}
-	log.WithFields(log.Fields{
-		"dir": dir,
-	}).Infoln("register new host.")
-	if _, err := client.Set(key, ip, 0); err != nil {
-		log.WithFields(log.Fields{
-			"key":   key,
-			"error": err.Error(),
-		}).Fatalln("register host ip failed.")
-	}
-	log.WithFields(log.Fields{
-		"key": key,
-		"ip":  ip,
-	}).Infoln("set IP for host.")
-
-	for {
-		if _, err := client.UpdateDir(dir, 5); err != nil {
-			log.WithFields(log.Fields{
-				"dir":   dir,
-				"error": err.Error(),
-			}).Errorln("send heartbeat failed.")
-		}
-		time.Sleep(time.Duration(4) * time.Second)
-	}
-}
-
-func init() {
-	flag.StringVar(&name, "name", "default", "set current host name")
-	flag.StringVar(&cluster, "cluster", "default", "set cluster name")
-	flag.StringVar(&ip, "ip", "127.0.0.1", "the host ip")
-	flag.StringVar(&nodes, "nodes", "", "set URL of etcd")
-	flag.StringVar(&prefix, "prefix", "", "prefix of the key that beacon will use")
-	flag.IntVar(&interval, "interval", 5, "interval second")
-	flag.StringVar(&cert, "cert", "", "set cert directory for docker daemon")
-	flag.StringVar(&daemon, "daemon", "unix:///var/run/docker.sock", "set docker daemon")
-	flag.BoolVar(&tls, "tls", false, "set tls mode for docker daemon")
-	flag.BoolVar(&debug, "debug", false, "turn on debug log")
-}
 
 func main() {
-	flag.Parse()
-
-	if nodes == "" {
-		log.Fatalln("etcd nodesb is required.")
+	app := cli.NewApp()
+	app.Name = "beacon"
+	app.Usage = "A light weight tool to manage docker containers."
+	app.Version = Version
+	app.Flags = []cli.Flag{
+		cli.StringFlag{Name: "nodes", Value: "http://0.0.0.0:2379", Usage: "etcd endpoints"},
+		cli.StringFlag{Name: "prefix", Value: "", Usage: "key prefix for /beacon"},
+		cli.BoolFlag{Name: "debug", Usage: "print debug logs"},
+	}
+	app.Commands = []cli.Command{
+		function.NewDaemonCmd(),
+		function.NewRegisterCmd(),
+		function.NewUnregisterCmd(),
+		function.NewAddCmd(),
+		function.NewRemoveCmd(),
+		function.NewStartCmd(),
+		function.NewStopCmd(),
 	}
 
-	if debug {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetLevel(log.InfoLevel)
-	}
-
-	etcdClient := etcd.NewClient(strings.Split(nodes, ","))
-	log.Debugln("Etcd:", etcdClient.GetCluster())
-
-	client, err := dockerClient()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatalln("failed to connect to docker daemon.")
-	}
-
-	log.WithFields(log.Fields{
-		"hostName": name,
-		"hostIp":   ip,
-	}).Infoln("beacond start.")
-
-	go register(etcdClient)
-
-	for {
-		commands := check(etcdClient)
-		if commands != nil && len(commands) > 0 {
-			for _, c := range commands {
-				log.WithFields(log.Fields{
-					"id": c.Id,
-				}).Infoln("start to execute a new command.")
-
-				err := c.Process(client, etcdClient, ip, prefix)
-				if err != nil {
-					log.Errorln(err.Error())
-				}
-
-				remove(etcdClient, c.Id)
-			}
-		}
-
-		time.Sleep(time.Duration(interval) * time.Second)
-	}
+	app.Run(os.Args)
 }
