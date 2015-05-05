@@ -19,6 +19,7 @@ func NewStopCmd() cli.Command {
 			cli.StringFlag{Name: "id", Usage: "set container id"},
 			cli.StringFlag{Name: "image", Usage: "set image name"},
 			cli.StringFlag{Name: "service", Usage: "set service name"},
+			cli.StringFlag{Name: "backend", Usage: "set backend name (only for http service)"},
 			cli.StringFlag{Name: "proto", Value: "tcp", Usage: "set service protocol, 'tcp' or 'http'"},
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name this service belong"},
 			cli.StringSliceFlag{Name: "target", Value: &cli.StringSlice{}, Usage: "set who will receive this command"},
@@ -40,6 +41,7 @@ func doStop(c *cli.Context, client *etcd.Client) {
 		Type:    "remove",
 		Name:    c.String("id"),
 		Service: c.String("service"),
+		Backend: c.String("backend"),
 		Cluster: c.String("cluster"),
 		Proto:   c.String("proto"),
 	}

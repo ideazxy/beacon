@@ -1,9 +1,7 @@
 package function
 
 import (
-	"fmt"
-	"log"
-
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
 	reg "github.com/ideazxy/beacon/register"
@@ -16,9 +14,10 @@ func NewRemoveCmd() cli.Command {
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "name", Usage: "set service instance name"},
 			cli.StringFlag{Name: "service", Usage: "set service name"},
+			cli.StringFlag{Name: "backend", Usage: "set backend name (only for http service)"},
 			cli.StringFlag{Name: "proto", Value: "tcp", Usage: "set service protocol, 'tcp' or 'http'"},
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name the service belong"},
-			cli.StringFlag{Name: "listen", Usage: "set port this container listens"},
+			cli.StringFlag{Name: "port", Usage: "set port this container listens"},
 			cli.StringFlag{Name: "host", Usage: "set host IP"},
 		},
 		Action: func(c *cli.Context) {
@@ -31,14 +30,19 @@ func doRemove(c *cli.Context, client *etcd.Client) {
 	instance := &reg.Instance{
 		Name:    c.String("name"),
 		Service: c.String("service"),
+		Backend: c.String("backend"),
 		Proto:   c.String("proto"),
 		Cluster: c.String("cluster"),
 		Ip:      c.String("host"),
-		Listen:  c.String("listen"),
+		Listen:  c.String("port"),
 		Prefix:  c.GlobalString("prefix"),
 	}
 	if err := reg.RemoveInstance(client, instance); err != nil {
 		log.Fatalln(err.Error())
 	}
-	fmt.Printf("unregistered a new instance [%s] to service [%s]\n", instance.Name, instance.Service)
+	log.WithFields(log.Fields{
+		"name":    instance.Name,
+		"service": instance.Service,
+		"backend": instance.Backend,
+	}).Infoln("unregister an instance.")
 }

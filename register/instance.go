@@ -2,14 +2,15 @@ package register
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-etcd/etcd"
 )
 
 type Instance struct {
 	Name    string
+	Backend string
 	Service string
 	Proto   string
 	Cluster string
@@ -19,16 +20,22 @@ type Instance struct {
 }
 
 func AddInstance(client *etcd.Client, i *Instance) error {
-	basekey := fmt.Sprintf("/beacon/registry/%s/%s/%s/upstreams/%s",
-		i.Cluster, i.Proto, i.Service, i.Name)
-	if i.Prefix != "" {
-		basekey = fmt.Sprintf("/%s%s", strings.Trim(i.Prefix, "/"), basekey)
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+		i.Cluster, i.Proto, i.Service), i.Prefix)
+
+	var key string
+	if i.Proto == "http" {
+		key = fmt.Sprintf("%s/backends/%s/upstreams/%s/listen", basekey, i.Backend, i.Name)
+	} else { // i.Proto == "tcp"
+		key = fmt.Sprintf("%s/upstreams/%s/listen", basekey, i.Name)
 	}
 
-	k := basekey + "/listen"
-	v := fmt.Sprintf("%s:%s", i.Ip, strings.TrimPrefix(i.Listen, ":"))
-	log.Println("Set key: [", k, "], value: [", v, "]")
-	if _, err := client.Set(k, v, 0); err != nil {
+	value := fmt.Sprintf("%s:%s", i.Ip, strings.TrimPrefix(i.Listen, ":"))
+	log.WithFields(log.Fields{
+		"key":   key,
+		"value": value,
+	}).Debugln("add new instance.")
+	if _, err := client.Set(key, value, 0); err != nil {
 		return err
 	}
 
@@ -36,13 +43,19 @@ func AddInstance(client *etcd.Client, i *Instance) error {
 }
 
 func RemoveInstance(client *etcd.Client, i *Instance) error {
-	key := fmt.Sprintf("/beacon/registry/%s/%s/%s/upstreams/%s",
-		i.Cluster, i.Proto, i.Service, i.Name)
-	if i.Prefix != "" {
-		key = fmt.Sprintf("/%s%s", strings.Trim(i.Prefix, "/"), key)
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+		i.Cluster, i.Proto, i.Service), i.Prefix)
+
+	var key string
+	if i.Proto == "http" {
+		key = fmt.Sprintf("%s/backends/%s/upstreams/%s", basekey, i.Backend, i.Name)
+	} else { // i.Proto == "tcp"
+		key = fmt.Sprintf("%s/upstreams/%s", basekey, i.Name)
 	}
 
-	log.Println("Remove key: [", key, "]")
+	log.WithFields(log.Fields{
+		"key": key,
+	}).Debugln("remove instance.")
 	if _, err := client.Delete(key, true); err != nil {
 		return err
 	}

@@ -22,6 +22,7 @@ type Command struct {
 	Vol         []string
 	Listen      string // only one port will be registerd
 	Service     string // name of service
+	Backend     string // name of backend
 	Cluster     string
 	Proto       string // tcp|http
 	DockerUser  string
@@ -51,6 +52,7 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 			instance := &register.Instance{
 				Name:    container.ID,
 				Service: c.Service,
+				Backend: c.Backend,
 				Cluster: c.Cluster,
 				Proto:   c.Proto,
 				Ip:      hostIp,
@@ -74,6 +76,7 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 				instance := &register.Instance{
 					Name:    container.ID,
 					Service: c.Service,
+					Backend: c.Backend,
 					Cluster: c.Cluster,
 					Proto:   c.Proto,
 					Prefix:  prefix,

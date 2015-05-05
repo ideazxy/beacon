@@ -1,8 +1,7 @@
 package function
 
 import (
-	"log"
-
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
 	reg "github.com/ideazxy/beacon/register"
@@ -39,4 +38,11 @@ func doRegisterService(c *cli.Context, client *etcd.Client) {
 	if err := reg.AddService(client, service); err != nil {
 		log.Fatalln(err.Error())
 	}
+	log.WithFields(log.Fields{
+		"name":     service.Name,
+		"backend":  service.Backend,
+		"protocol": service.Proto,
+		"listen":   service.Listen,
+		"hosts":    service.Hosts,
+	}).Infoln("register a new service.")
 }

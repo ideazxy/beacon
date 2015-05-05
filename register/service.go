@@ -3,9 +3,8 @@ package register
 import (
 	"errors"
 	"fmt"
-	"log"
-	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-etcd/etcd"
 )
 
@@ -20,14 +19,14 @@ type Service struct {
 }
 
 func AddService(client *etcd.Client, s *Service) error {
-	basekey := fmt.Sprintf("/beacon/registry/%s/%s/%s",
-		s.Cluster, s.Proto, s.Name)
-	if s.Prefix != "" {
-		basekey = fmt.Sprintf("/%s%s", strings.Trim(s.Prefix, "/"), basekey)
-	}
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+		s.Cluster, s.Proto, s.Name), s.Prefix)
 
 	k := basekey + "/listen"
-	log.Println("Set key: [", k, "], value: [", s.Listen, "]")
+	log.WithFields(log.Fields{
+		"key":   k,
+		"value": s.Listen,
+	}).Debugln("register new service.")
 	if _, err := client.Set(k, s.Listen, 0); err != nil {
 		return err
 	}
@@ -49,11 +48,8 @@ func AddService(client *etcd.Client, s *Service) error {
 }
 
 func RemoveService(client *etcd.Client, s *Service) error {
-	basekey := fmt.Sprintf("/beacon/registry/%s/%s",
-		s.Cluster, s.Proto)
-	if s.Prefix != "" {
-		basekey = fmt.Sprintf("/%s%s", strings.Trim(s.Prefix, "/"), basekey)
-	}
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s",
+		s.Cluster, s.Proto), s.Prefix)
 
 	var key string
 	if s.Proto == "tcp" {
@@ -62,7 +58,9 @@ func RemoveService(client *etcd.Client, s *Service) error {
 		key = fmt.Sprintf("%s/%s/backends/%s", basekey, s.Name, s.Backend)
 	}
 
-	log.Println("Delete key: [", key, "]")
+	log.WithFields(log.Fields{
+		"key": key,
+	}).Debugln("unregister service.")
 	if _, err := client.Delete(key, true); err != nil {
 		return err
 	}
