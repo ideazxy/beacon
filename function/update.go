@@ -10,10 +10,10 @@ import (
 	"github.com/ideazxy/beacon/command"
 )
 
-func NewStartCmd() cli.Command {
+func NewUpdateCmd() cli.Command {
 	return cli.Command{
-		Name:  "start",
-		Usage: "start a new service instance",
+		Name:  "update",
+		Usage: "update service instance",
 		Flags: []cli.Flag{
 			cli.StringSliceFlag{Name: "env, e", Value: &cli.StringSlice{}, Usage: "set container environment variables"},
 			cli.StringSliceFlag{Name: "volume, v", Value: &cli.StringSlice{}, Usage: "bind mount a volumn"},
@@ -33,18 +33,18 @@ func NewStartCmd() cli.Command {
 			cli.StringFlag{Name: "host", Usage: "set host IP"},
 		},
 		Action: func(c *cli.Context) {
-			handle(c, doStart)
+			handle(c, doUpdate)
 		},
 	}
 }
 
-func doStart(c *cli.Context, client *etcd.Client) {
+func doUpdate(c *cli.Context, client *etcd.Client) {
 	if len(c.Args()) < 1 {
 		log.Fatalln("image name is required!")
 	}
 	cmd := &command.Command{
 		Id:          time.Now().Format("20060102030405"),
-		Type:        "add",
+		Type:        "update",
 		Image:       c.Args()[0],
 		Env:         c.StringSlice("env"),
 		Vol:         c.StringSlice("volume"),
@@ -67,7 +67,7 @@ func doStart(c *cli.Context, client *etcd.Client) {
 	log.Infoln("generate a new command: ", cmd.Marshal())
 
 	if c.Bool("local") {
-		log.Infoln("just start container on local host")
+		log.Infoln("just update container on local host")
 		if err := cmd.Process(dockerClient(c), client, c.String("host"), c.GlobalString("prefix")); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),

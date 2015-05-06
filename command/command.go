@@ -44,22 +44,7 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 		}
 
 		if c.Service != "" {
-			log.Debugln("prepare to register instance.")
-			exportList, ok := container.NetworkSettings.Ports[docker.Port(c.Listen+"/tcp")]
-			if !ok || len(exportList) < 1 {
-				return errors.New("the port to listen not found")
-			}
-			instance := &register.Instance{
-				Name:    container.ID,
-				Service: c.Service,
-				Backend: c.Backend,
-				Cluster: c.Cluster,
-				Proto:   c.Proto,
-				Ip:      hostIp,
-				Prefix:  prefix,
-				Listen:  exportList[0].HostPort,
-			}
-			if err = register.AddInstance(etcdClient, instance); err != nil {
+			if err = c.registerInstance(etcdClient, container, hostIp, prefix); err != nil {
 				return err
 			}
 		} else {
@@ -73,21 +58,37 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 		}
 		if c.Service != "" {
 			for _, container := range containers {
-				instance := &register.Instance{
-					Name:    container.ID,
-					Service: c.Service,
-					Backend: c.Backend,
-					Cluster: c.Cluster,
-					Proto:   c.Proto,
-					Prefix:  prefix,
-				}
-				if err = register.RemoveInstance(etcdClient, instance); err != nil {
+				if err = c.unregisterInstance(etcdClient, &container, prefix); err != nil {
 					return err
 				}
 			}
 			log.WithFields(log.Fields{
-				"Num": len(containers),
+				"num": len(containers),
 			}).Infoln("instances unregistered.")
+		} else {
+			log.Infoln("skip over instance unregister.")
+		}
+
+	case "update":
+		started, stopped, err := c.updateContainer(dockerClient)
+		if err != nil {
+			return err
+		}
+
+		if c.Service != "" {
+			if err = c.registerInstance(etcdClient, started, hostIp, prefix); err != nil {
+				return err
+			}
+			for _, container := range stopped {
+				if err = c.unregisterInstance(etcdClient, &container, prefix); err != nil {
+					return err
+				}
+			}
+			log.WithFields(log.Fields{
+				"num": len(stopped),
+			}).Infoln("instances unregistered.")
+		} else {
+			log.Infoln("skip over instance register/unregister.")
 		}
 
 	default:
@@ -182,21 +183,21 @@ outer:
 		return nil, errors.New("container is not running")
 	}
 	log.WithFields(log.Fields{
-		"Id":     container.ID,
-		"Name":   container.Name,
-		"Status": "running",
+		"id":     container.ID,
+		"name":   container.Name,
+		"status": "running",
 	}).Infoln("run container successfully.")
 
 	return container, nil
 }
 
-func (c *Command) stopContainer(client *docker.Client) ([]*docker.APIContainers, error) {
+func (c *Command) stopContainer(client *docker.Client) ([]docker.APIContainers, error) {
 	results, err := client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	stopped := make([]*docker.APIContainers, 0)
+	stopped := make([]docker.APIContainers, 0)
 	for _, container := range results {
 		if log.GetLevel() >= log.DebugLevel {
 			b, err := json.Marshal(&container)
@@ -221,14 +222,121 @@ func (c *Command) stopContainer(client *docker.Client) ([]*docker.APIContainers,
 			return nil, err
 		}
 		log.WithFields(log.Fields{
-			"Id":    container.ID,
-			"Name":  container.Names,
-			"Image": container.Image,
+			"id":    container.ID,
+			"name":  container.Names,
+			"image": container.Image,
 		}).Infoln("container stopped.")
 
-		stopped = append(stopped, &container)
+		stopped = append(stopped, container)
 	}
 	return stopped, nil
+}
+
+func (c *Command) updateContainer(client *docker.Client) (*docker.Container, []docker.APIContainers, error) {
+	started, err := c.runContainer(client)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	currImage, err := c.inspectImage(client, c.Image)
+	if err != nil {
+		return started, nil, err
+	}
+
+	imageName := strings.Split(c.Image, ":")[0]
+	psResult, err := client.ListContainers(docker.ListContainersOptions{})
+	if err != nil {
+		return started, nil, err
+	}
+
+	stopped := make([]docker.APIContainers, 0)
+	for _, container := range psResult {
+		if log.GetLevel() >= log.DebugLevel {
+			b, err := json.Marshal(&container)
+			if err == nil {
+				log.Debugln("check container: ", string(b))
+			}
+		}
+
+		if imageName != strings.Split(container.Image, ":")[0] {
+			continue
+		}
+
+		containerDetail, err := client.InspectContainer(container.ID)
+		if err != nil {
+			return started, nil, err
+		}
+		if currImage.ID == containerDetail.Image {
+			continue
+		}
+		log.WithFields(log.Fields{
+			"id": container.ID,
+		}).Debugln("find old container.")
+
+		if err = client.StopContainer(container.ID, 10); err != nil {
+			return started, nil, err
+		}
+		log.WithFields(log.Fields{
+			"id":    container.ID,
+			"name":  container.Names,
+			"image": container.Image,
+		}).Infoln("container stopped.")
+
+		stopped = append(stopped, container)
+	}
+	return started, stopped, nil
+}
+
+func (c *Command) inspectImage(client *docker.Client, name string) (docker.APIImages, error) {
+	images, err := client.ListImages(docker.ListImagesOptions{})
+	if err != nil {
+		return docker.APIImages{}, err
+	}
+
+	for _, image := range images {
+		for _, taggedName := range image.RepoTags {
+			if taggedName == name {
+				return image, nil
+			}
+		}
+	}
+	return docker.APIImages{}, errors.New("image not found")
+}
+
+func (c *Command) registerInstance(etcdClient *etcd.Client, container *docker.Container, hostIp, prefix string) error {
+	log.WithFields(log.Fields{
+		"id": container.ID,
+	}).Debugln("start to register instance.")
+	exportList, ok := container.NetworkSettings.Ports[docker.Port(c.Listen+"/tcp")]
+	if !ok || len(exportList) < 1 {
+		return errors.New("the port to listen not found")
+	}
+	instance := &register.Instance{
+		Name:    container.ID,
+		Service: c.Service,
+		Backend: c.Backend,
+		Cluster: c.Cluster,
+		Proto:   c.Proto,
+		Ip:      hostIp,
+		Prefix:  prefix,
+		Listen:  exportList[0].HostPort,
+	}
+	return register.AddInstance(etcdClient, instance)
+}
+
+func (c *Command) unregisterInstance(etcdClient *etcd.Client, container *docker.APIContainers, prefix string) error {
+	log.WithFields(log.Fields{
+		"id": container.ID,
+	}).Debugln("start to unregister instance.")
+	instance := &register.Instance{
+		Name:    container.ID,
+		Service: c.Service,
+		Backend: c.Backend,
+		Cluster: c.Cluster,
+		Proto:   c.Proto,
+		Prefix:  prefix,
+	}
+	return register.RemoveInstance(etcdClient, instance)
 }
 
 func (c *Command) Marshal() string {

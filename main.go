@@ -25,6 +25,7 @@ func main() {
 		function.NewRemoveCmd(),
 		function.NewStartCmd(),
 		function.NewStopCmd(),
+		function.NewUpdateCmd(),
 	}
 
 	app.Run(os.Args)

@@ -23,10 +23,6 @@ func AddService(client *etcd.Client, s *Service) error {
 		s.Cluster, s.Proto, s.Name), s.Prefix)
 
 	k := basekey + "/listen"
-	log.WithFields(log.Fields{
-		"key":   k,
-		"value": s.Listen,
-	}).Debugln("register new service.")
 	if _, err := client.Set(k, s.Listen, 0); err != nil {
 		return err
 	}
@@ -44,6 +40,10 @@ func AddService(client *etcd.Client, s *Service) error {
 			}
 		}
 	}
+	log.WithFields(log.Fields{
+		"key":   k,
+		"value": s.Listen,
+	}).Infoln("registered new service.")
 	return nil
 }
 
@@ -58,12 +58,12 @@ func RemoveService(client *etcd.Client, s *Service) error {
 		key = fmt.Sprintf("%s/%s/backends/%s", basekey, s.Name, s.Backend)
 	}
 
-	log.WithFields(log.Fields{
-		"key": key,
-	}).Debugln("unregister service.")
 	if _, err := client.Delete(key, true); err != nil {
 		return err
 	}
+	log.WithFields(log.Fields{
+		"key": key,
+	}).Infoln("unregister service.")
 
 	return nil
 }

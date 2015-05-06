@@ -1,8 +1,6 @@
 package function
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -27,7 +25,6 @@ func NewStopCmd() cli.Command {
 			cli.BoolFlag{Name: "tls", Usage: "set tls mode for docker daemon"},
 			cli.StringFlag{Name: "cert", Usage: "set cert directory for docker daemon"},
 			cli.StringFlag{Name: "docker", Usage: "set docker daemon for local mode"},
-			cli.StringFlag{Name: "host", Usage: "set host IP"},
 		},
 		Action: func(c *cli.Context) {
 			handle(c, doStop)
@@ -64,27 +61,5 @@ func doStop(c *cli.Context, client *etcd.Client) {
 		return
 	}
 
-	targets := c.StringSlice("target")
-	if targets == nil || len(targets) == 0 {
-		log.Warningln("no target set! try to send command to all registered host.")
-		targets = fetchHosts(c, client)
-	}
-	if targets == nil {
-		log.Fatalln("no target to send command.")
-	} else {
-		log.Infoln("send command to: ", targets)
-	}
-	for _, target := range targets {
-		key := fmt.Sprintf("/beacon/commands/single/%s/%s/",
-			target, cmd.Id)
-		if c.GlobalString("prefix") != "" {
-			key = fmt.Sprintf("/%s%s", strings.Trim(c.GlobalString("prefix"), "/"), key)
-		}
-
-		if _, err := client.Set(key, cmd.Marshal(), 0); err != nil {
-			log.WithFields(log.Fields{
-				"error": err.Error(),
-			}).Fatalln("send command failed.")
-		}
-	}
+	dispatchCommand(c, client, cmd)
 }

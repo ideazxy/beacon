@@ -8,6 +8,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/ideazxy/beacon/command"
 )
 
 func dockerClient(c *cli.Context) *docker.Client {
@@ -64,4 +65,30 @@ func fetchHosts(c *cli.Context, client *etcd.Client) []string {
 		hosts = append(hosts, parts[len(parts)-1])
 	}
 	return hosts
+}
+
+func dispatchCommand(c *cli.Context, client *etcd.Client, cmd *command.Command) {
+	targets := c.StringSlice("target")
+	if targets == nil || len(targets) == 0 {
+		log.Warningln("no target set! try to send command to all registered host.")
+		targets = fetchHosts(c, client)
+	}
+	if targets == nil {
+		log.Fatalln("no target to send command.")
+	} else {
+		log.Infoln("send command to: ", targets)
+	}
+	for _, target := range targets {
+		key := fmt.Sprintf("/beacon/commands/single/%s/%s/",
+			target, cmd.Id)
+		if c.GlobalString("prefix") != "" {
+			key = fmt.Sprintf("/%s%s", strings.Trim(c.GlobalString("prefix"), "/"), key)
+		}
+
+		if _, err := client.Set(key, cmd.Marshal(), 0); err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Fatalln("send command failed.")
+		}
+	}
 }
