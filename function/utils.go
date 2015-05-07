@@ -45,6 +45,17 @@ func etcdClient(c *cli.Context) *etcd.Client {
 	return etcd.NewClient(strings.Split(nodes, ","))
 }
 
+func appendTag(name string) string {
+	n := strings.LastIndex(name, ":")
+	if n < 0 {
+		return name + ":latest"
+	}
+	if tag := name[n+1:]; strings.Contains(tag, "/") {
+		return name + ":latest"
+	}
+	return name
+}
+
 func fetchHosts(c *cli.Context, client *etcd.Client) []string {
 	key := fmt.Sprintf("/beacon/cluster/%s", c.String("cluster"))
 	if c.GlobalString("prefix") != "" {

@@ -1,7 +1,6 @@
 package function
 
 import (
-	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -45,7 +44,7 @@ func doStart(c *cli.Context, client *etcd.Client) {
 	cmd := &command.Command{
 		Id:          time.Now().Format("20060102030405"),
 		Type:        "add",
-		Image:       c.Args()[0],
+		Image:       appendTag(c.Args()[0]),
 		Env:         c.StringSlice("env"),
 		Vol:         c.StringSlice("volume"),
 		Listen:      c.String("port"),
@@ -59,9 +58,6 @@ func doStart(c *cli.Context, client *etcd.Client) {
 	}
 	if len(c.Args()) > 1 {
 		cmd.Cmd = c.Args()[1:]
-	}
-	if len(strings.Split(cmd.Image, ":")) != 2 {
-		cmd.Image += ":latest"
 	}
 
 	log.Infoln("generate a new command: ", cmd.Marshal())

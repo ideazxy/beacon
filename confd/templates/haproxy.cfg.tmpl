@@ -47,7 +47,7 @@ frontend {{$name}}
 
 {{range $backend := ls (printf "/http/%s/backends" $name)}}
 backend {{$backend}}
-        balance leastconn
+        balance roundrobin
         {{range $upstream := ls (printf "/http/%s/backends/%s/upstreams" $name $backend)}}
         server {{$upstream}} {{printf "/http/%s/backends/%s/upstreams/%s/listen" $name $backend $upstream | getv}} cookie A check
         {{end}}
