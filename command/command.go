@@ -243,7 +243,8 @@ func (c *Command) updateContainer(client *docker.Client) (*docker.Container, []d
 		return started, nil, err
 	}
 
-	imageName := strings.Split(c.Image, ":")[0]
+	_, rname := splitReposName(c.Image)
+	imageName := strings.Split(rname, ":")[0]
 	psResult, err := client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		return started, nil, err
@@ -258,7 +259,8 @@ func (c *Command) updateContainer(client *docker.Client) (*docker.Container, []d
 			}
 		}
 
-		if imageName != strings.Split(container.Image, ":")[0] {
+		_, remoteName := splitReposName(container.Image)
+		if imageName != strings.Split(remoteName, ":")[0] {
 			continue
 		}
 
