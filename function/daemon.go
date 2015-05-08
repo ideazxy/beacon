@@ -11,6 +11,11 @@ import (
 	"github.com/ideazxy/beacon/command"
 )
 
+const (
+	HOST_TTL            uint64        = 60 * 5
+	HEARTBEATS_INTERVAL time.Duration = 30 * time.Second
+)
+
 func NewDaemonCmd() cli.Command {
 	return cli.Command{
 		Name:  "daemon",
@@ -97,15 +102,32 @@ func register(client *etcd.Client, cluster, name, ip string) {
 	if prefix != "" {
 		dir = fmt.Sprintf("/%s%s", strings.Trim(prefix, "/"), dir)
 	}
-	key := fmt.Sprintf("%s/ip", dir)
-	if _, err := client.CreateDir(dir, 5); err != nil {
+	registerHost(client, dir, ip)
+
+	// refresh ttl every 30 seconds:
+	for {
+		if _, err := client.UpdateDir(dir, HOST_TTL); err != nil {
+			log.WithFields(log.Fields{
+				"dir":   dir,
+				"error": err.Error(),
+			}).Warnln("send heartbeat failed. try to register new ...")
+
+			registerHost(client, dir, ip)
+		}
+		time.Sleep(HEARTBEATS_INTERVAL)
+	}
+}
+
+func registerHost(client *etcd.Client, hostKey, ip string) {
+	key := fmt.Sprintf("%s/ip", hostKey)
+	if _, err := client.CreateDir(hostKey, HOST_TTL); err != nil {
 		log.WithFields(log.Fields{
-			"dir":   dir,
+			"dir":   hostKey,
 			"error": err.Error(),
 		}).Fatalln("register host failed.")
 	}
 	log.WithFields(log.Fields{
-		"dir": dir,
+		"dir": hostKey,
 	}).Infoln("register new host.")
 	if _, err := client.Set(key, ip, 0); err != nil {
 		log.WithFields(log.Fields{
@@ -117,16 +139,6 @@ func register(client *etcd.Client, cluster, name, ip string) {
 		"key": key,
 		"ip":  ip,
 	}).Infoln("set IP for host.")
-
-	for {
-		if _, err := client.UpdateDir(dir, 5); err != nil {
-			log.WithFields(log.Fields{
-				"dir":   dir,
-				"error": err.Error(),
-			}).Errorln("send heartbeat failed.")
-		}
-		time.Sleep(time.Duration(4) * time.Second)
-	}
 }
 
 func doDaemon(c *cli.Context, client *etcd.Client) {
