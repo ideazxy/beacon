@@ -52,50 +52,65 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 		}
 
 	case "remove":
-		containers, err := c.stopContainer(dockerClient)
+		containers, err := c.findContainers(dockerClient)
 		if err != nil {
 			return err
 		}
-		if c.Service != "" {
-			for _, container := range containers {
-				if err = c.unregisterInstance(etcdClient, &container, prefix); err != nil {
-					return err
-				}
-			}
-			log.WithFields(log.Fields{
-				"num": len(containers),
-			}).Infoln("instances unregistered.")
-		} else {
-			log.Infoln("skip over instance unregister.")
-		}
+
+		c.stopInstances(dockerClient, etcdClient, containers, prefix)
 
 	case "update":
-		started, stopped, err := c.updateContainer(dockerClient)
+		container, err := c.runContainer(dockerClient)
 		if err != nil {
 			return err
 		}
 
 		if c.Service != "" {
-			if err = c.registerInstance(etcdClient, started, hostIp, prefix); err != nil {
+			if err = c.registerInstance(etcdClient, container, hostIp, prefix); err != nil {
 				return err
 			}
-			for _, container := range stopped {
-				if err = c.unregisterInstance(etcdClient, &container, prefix); err != nil {
-					return err
-				}
-			}
-			log.WithFields(log.Fields{
-				"num": len(stopped),
-			}).Infoln("instances unregistered.")
 		} else {
-			log.Infoln("skip over instance register/unregister.")
+			log.Infoln("skip over instance register.")
 		}
+
+		containers, err := c.findReplacedContainers(dockerClient)
+		if err != nil {
+			return err
+		}
+		c.stopInstances(dockerClient, etcdClient, containers, prefix)
 
 	default:
 		log.WithFields(log.Fields{
 			"operation": c.Type,
 		}).Errorln("unknown operation type.")
 		return errors.New("unknown type")
+	}
+	return nil
+}
+
+func (c *Command) stopInstances(dockerClient *docker.Client, etcdClient *etcd.Client, containers []docker.APIContainers, prefix string) error {
+	for _, container := range containers {
+		log.WithFields(log.Fields{
+			"id": container.ID,
+		}).Infoln("Start to stop instance.")
+		// unregister instance first:
+		if c.Service != "" {
+			if err := c.unregisterInstance(etcdClient, &container, prefix); err != nil {
+				return err
+			}
+		} else {
+			log.Infoln("skip over instance unregister.")
+		}
+
+		// then, stop container:
+		if err := dockerClient.StopContainer(container.ID, 10); err != nil {
+			return err
+		}
+		log.WithFields(log.Fields{
+			"id":    container.ID,
+			"name":  container.Names,
+			"image": container.Image,
+		}).Infoln("container stopped.")
 	}
 	return nil
 }
@@ -191,7 +206,7 @@ outer:
 	return container, nil
 }
 
-func (c *Command) stopContainer(client *docker.Client) ([]docker.APIContainers, error) {
+func (c *Command) findContainers(client *docker.Client) ([]docker.APIContainers, error) {
 	results, err := client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		return nil, err
@@ -206,48 +221,31 @@ func (c *Command) stopContainer(client *docker.Client) ([]docker.APIContainers, 
 			}
 		}
 
-		var id string
-		if c.Name != "" && strings.HasPrefix(container.ID, c.Name) {
-			id = container.ID
-		} else if container.Image == c.Image {
-			id = container.ID
-		}
-
-		if id == "" {
+		if c.Name != "" && !strings.HasPrefix(container.ID, c.Name) {
+			continue
+		} else if c.Image != "" && container.Image != c.Image {
 			continue
 		}
-		log.Debugln("match container: ", id)
-
-		if err = client.StopContainer(id, 10); err != nil {
-			return nil, err
-		}
 		log.WithFields(log.Fields{
-			"id":    container.ID,
-			"name":  container.Names,
-			"image": container.Image,
-		}).Infoln("container stopped.")
+			"id": container.ID,
+		}).Debugln("find target container.")
 
 		stopped = append(stopped, container)
 	}
 	return stopped, nil
 }
 
-func (c *Command) updateContainer(client *docker.Client) (*docker.Container, []docker.APIContainers, error) {
-	started, err := c.runContainer(client)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func (c *Command) findReplacedContainers(client *docker.Client) ([]docker.APIContainers, error) {
 	currImage, err := c.inspectImage(client, c.Image)
 	if err != nil {
-		return started, nil, err
+		return nil, err
 	}
 
 	_, rname := splitReposName(c.Image)
 	imageName := strings.Split(rname, ":")[0]
 	psResult, err := client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
-		return started, nil, err
+		return nil, err
 	}
 
 	stopped := make([]docker.APIContainers, 0)
@@ -266,27 +264,18 @@ func (c *Command) updateContainer(client *docker.Client) (*docker.Container, []d
 
 		containerDetail, err := client.InspectContainer(container.ID)
 		if err != nil {
-			return started, nil, err
+			return nil, err
 		}
 		if currImage.ID == containerDetail.Image {
 			continue
 		}
 		log.WithFields(log.Fields{
 			"id": container.ID,
-		}).Debugln("find old container.")
-
-		if err = client.StopContainer(container.ID, 10); err != nil {
-			return started, nil, err
-		}
-		log.WithFields(log.Fields{
-			"id":    container.ID,
-			"name":  container.Names,
-			"image": container.Image,
-		}).Infoln("container stopped.")
+		}).Debugln("find target container.")
 
 		stopped = append(stopped, container)
 	}
-	return started, stopped, nil
+	return stopped, nil
 }
 
 func (c *Command) inspectImage(client *docker.Client, name string) (docker.APIImages, error) {
