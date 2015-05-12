@@ -31,7 +31,12 @@ func AddInstance(client *etcd.Client, i *Instance) error {
 	}
 
 	value := fmt.Sprintf("%s:%s", i.Ip, strings.TrimPrefix(i.Listen, ":"))
+	log.WithFields(log.Fields{
+		"key":   key,
+		"value": value,
+	}).Debugln("update key/value.")
 	if _, err := client.Set(key, value, 0); err != nil {
+		log.Debugln(err.Error())
 		return err
 	}
 	log.WithFields(log.Fields{
@@ -53,7 +58,11 @@ func RemoveInstance(client *etcd.Client, i *Instance) error {
 		key = fmt.Sprintf("%s/upstreams/%s", basekey, i.Name)
 	}
 
+	log.WithFields(log.Fields{
+		"key": key,
+	}).Debugln("delete key.")
 	if _, err := client.Delete(key, true); err != nil {
+		log.Debugln(err.Error())
 		return err
 	}
 	log.WithFields(log.Fields{

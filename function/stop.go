@@ -52,7 +52,7 @@ func doStop(c *cli.Context, client *etcd.Client) {
 	log.Infoln("generate a new command: ", cmd.Marshal())
 
 	if c.Bool("local") {
-		log.Infoln("just start container on local host")
+		log.Infoln("just stop container on local host")
 		if err := cmd.Process(dockerClient(c), etcdClient(c), c.String("host"), c.GlobalString("prefix")); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),

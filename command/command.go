@@ -57,7 +57,7 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 			return err
 		}
 
-		c.stopInstances(dockerClient, etcdClient, containers, prefix)
+		return c.stopInstances(dockerClient, etcdClient, containers, prefix)
 
 	case "update":
 		container, err := c.runContainer(dockerClient)
@@ -77,7 +77,7 @@ func (c *Command) Process(dockerClient *docker.Client, etcdClient *etcd.Client, 
 		if err != nil {
 			return err
 		}
-		c.stopInstances(dockerClient, etcdClient, containers, prefix)
+		return c.stopInstances(dockerClient, etcdClient, containers, prefix)
 
 	default:
 		log.WithFields(log.Fields{
