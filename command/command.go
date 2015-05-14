@@ -93,7 +93,7 @@ func (c *Command) stopInstances(dockerClient *docker.Client, etcdClient *etcd.Cl
 	for _, container := range containers {
 		log.WithFields(log.Fields{
 			"id": container.ID,
-		}).Infoln("Start to stop instance.")
+		}).Debugln("start to stop instance.")
 		// unregister instance first:
 		if c.Service != "" {
 			if err := c.unregisterInstance(etcdClient, &container, prefix); err != nil {
@@ -152,7 +152,7 @@ outer:
 		log.WithFields(log.Fields{
 			"repository": repository,
 			"tag":        tag,
-		}).Infoln("pulled new image.")
+		}).Infoln("new image pulled.")
 	}
 
 	container, err := client.CreateContainer(docker.CreateContainerOptions{
@@ -174,7 +174,7 @@ outer:
 	}
 	log.WithFields(log.Fields{
 		"id": container.ID,
-	}).Infoln("a new container is created.")
+	}).Infoln("container created.")
 	if log.GetLevel() >= log.DebugLevel {
 		b, err := json.Marshal(container)
 		if err != nil {
@@ -188,7 +188,7 @@ outer:
 	if err != nil {
 		return nil, err
 	}
-	log.Infoln("container is started")
+	log.Infoln("container started")
 
 	log.Infoln("wait 10 seconds to check status...")
 	time.Sleep(10 * time.Second)

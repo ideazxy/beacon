@@ -41,9 +41,11 @@ func AddInstance(client *etcd.Client, i *Instance) error {
 		return err
 	}
 	log.WithFields(log.Fields{
-		"key":   key,
-		"value": value,
-	}).Infoln("added new instance.")
+		"id":      i.Name,
+		"service": i.Service,
+		"backend": i.Backend,
+		"value":   value,
+	}).Infoln("instance added.")
 
 	return nil
 }
@@ -67,8 +69,10 @@ func RemoveInstance(client *etcd.Client, i *Instance) error {
 		return err
 	}
 	log.WithFields(log.Fields{
-		"key": key,
-	}).Infoln("removed instance.")
+		"id":      i.Name,
+		"service": i.Service,
+		"backend": i.Backend,
+	}).Infoln("instance removed.")
 
 	return nil
 }
@@ -109,7 +113,7 @@ func FindAndRemoveInstance(client *etcd.Client, cluster, prefix, name string) er
 			}
 		}
 	}
-	log.Infoln("no more instance to be clean.")
+	log.Infoln("no more instance needs clean.")
 	return nil
 }
 
@@ -131,7 +135,7 @@ func findAndRemoveUpstream(client *etcd.Client, node *etcd.Node, name string) er
 					}
 					log.WithFields(log.Fields{
 						"key": upstream.Key,
-					}).Infoln("removed instance.")
+					}).Infoln("instance removed.")
 				}
 			}
 		}

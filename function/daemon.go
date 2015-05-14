@@ -14,8 +14,12 @@ import (
 )
 
 const (
-	HOST_TTL            uint64        = 60 * 5
-	HEARTBEATS_INTERVAL time.Duration = 30 * time.Second
+	HOST_TTL            uint64        = 60
+	HEARTBEATS_INTERVAL time.Duration = 5 * time.Second
+)
+
+var (
+	lastIndex uint64
 )
 
 func NewDaemonCmd() cli.Command {
@@ -27,8 +31,6 @@ func NewDaemonCmd() cli.Command {
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name"},
 			cli.StringFlag{Name: "ip", Value: "127.0.0.1", Usage: "set host IP"},
 			cli.StringSliceFlag{Name: "add-host", Value: &cli.StringSlice{}, Usage: "add a custom host-to-IP mapping (host:ip)"},
-			cli.IntFlag{Name: "interval", Value: 5, Usage: "set interval seconds"},
-			cli.BoolFlag{Name: "watch", Usage: "set watch mode"},
 			cli.StringFlag{Name: "docker", Value: "unix:///var/run/docker.sock", Usage: "set docker daemon"},
 			cli.BoolFlag{Name: "tls", Usage: "set tls mode for docker daemon"},
 			cli.StringFlag{Name: "cert", Usage: "set cert directory for docker daemon if tls flag is set"},
@@ -44,18 +46,33 @@ func check(client *etcd.Client, name string) []*command.Command {
 	if prefix != "" {
 		key = fmt.Sprintf("/%s%s", strings.Trim(prefix, "/"), key)
 	}
-	resp, err := client.Get(key, true, true)
+
+	if lastIndex == 0 {
+		resp, err := client.Get(key, false, true)
+		if err != nil {
+			log.Warnln(err.Error())
+			return nil
+		}
+		lastIndex = resp.EtcdIndex
+	}
+
+	resp, err := client.Watch(key, lastIndex+1, true, nil, nil)
 	if err != nil {
 		log.Debugln(err.Error())
 		return nil
 	}
+	lastIndex = resp.Node.ModifiedIndex
 
+	resp, err = client.Get(key, true, true)
+	if err != nil {
+		log.Debugln(err.Error())
+		return nil
+	}
 	node := resp.Node
 	if !node.Dir {
 		log.Warningf("dirty data! [%s] should be a dir.\n", key)
 		return nil
 	}
-
 	cmds := make([]*command.Command, 0)
 	for _, n := range node.Nodes {
 		if n.Dir {
@@ -87,7 +104,9 @@ func remove(client *etcd.Client, name, id string) {
 			"error": err.Error(),
 		}).Fatalln("remove finished command failed.")
 	} else {
-		log.Infoln("command is removed.")
+		log.WithFields(log.Fields{
+			"id": id,
+		}).Infoln("command is removed.")
 	}
 }
 
@@ -183,13 +202,15 @@ func doDaemon(c *cli.Context, client *etcd.Client) {
 
 	go monitor(dockerClient(c), client, c.String("cluster"))
 
+	lastIndex = 0
 	for {
 		commands := check(client, c.String("name"))
-		if commands != nil && len(commands) > 0 {
+		if commands != nil {
 			for _, command := range commands {
 				command.ExtraHosts = append(command.ExtraHosts, c.StringSlice("add-host")...)
 				log.WithFields(log.Fields{
-					"id": command.Id,
+					"id":   command.Id,
+					"type": command.Type,
 				}).Infoln("start to execute a new command.")
 
 				err := command.Process(dockerClient(c), client, c.String("ip"), prefix)
@@ -200,7 +221,5 @@ func doDaemon(c *cli.Context, client *etcd.Client) {
 				remove(client, c.String("name"), command.Id)
 			}
 		}
-
-		time.Sleep(time.Duration(c.Int("interval")) * time.Second)
 	}
 }
