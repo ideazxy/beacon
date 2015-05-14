@@ -20,6 +20,7 @@ type Command struct {
 	Cmd         []string
 	Env         []string
 	Vol         []string
+	ExtraHosts  []string
 	Listen      string // only one port will be registerd
 	Service     string // name of service
 	Backend     string // name of backend
@@ -161,6 +162,12 @@ outer:
 			Cmd:   c.Cmd,
 			Image: c.Image,
 		},
+		HostConfig: &docker.HostConfig{
+			Binds:           c.Vol,
+			RestartPolicy:   docker.RestartOnFailure(3),
+			PublishAllPorts: true,
+			ExtraHosts:      c.ExtraHosts,
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -177,11 +184,7 @@ outer:
 		}
 	}
 
-	err = client.StartContainer(container.ID, &docker.HostConfig{
-		Binds:           c.Vol,
-		RestartPolicy:   docker.RestartOnFailure(3),
-		PublishAllPorts: true,
-	})
+	err = client.StartContainer(container.ID, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -24,6 +24,7 @@ func NewDaemonCmd() cli.Command {
 			cli.StringFlag{Name: "name", Usage: "set host name"},
 			cli.StringFlag{Name: "cluster", Value: "default", Usage: "set cluster name"},
 			cli.StringFlag{Name: "ip", Value: "127.0.0.1", Usage: "set host IP"},
+			cli.StringSliceFlag{Name: "add-host", Value: &cli.StringSlice{}, Usage: "add a custom host-to-IP mapping (host:ip)"},
 			cli.IntFlag{Name: "interval", Value: 5, Usage: "set interval seconds"},
 			cli.StringFlag{Name: "docker", Value: "unix:///var/run/docker.sock", Usage: "set docker daemon"},
 			cli.BoolFlag{Name: "tls", Usage: "set tls mode for docker daemon"},
@@ -153,6 +154,7 @@ func doDaemon(c *cli.Context, client *etcd.Client) {
 		commands := check(client, c.String("name"))
 		if commands != nil && len(commands) > 0 {
 			for _, command := range commands {
+				command.ExtraHosts = append(command.ExtraHosts, c.StringSlice("add-host")...)
 				log.WithFields(log.Fields{
 					"id": command.Id,
 				}).Infoln("start to execute a new command.")
