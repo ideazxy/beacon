@@ -1,8 +1,7 @@
 [template]
 prefix = "beacon/registry/default"
 keys = [
-  "/http",
-  "/tcp"
+  "/haproxy"
 ]
 
 owner = "root"

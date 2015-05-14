@@ -20,7 +20,7 @@ type Instance struct {
 }
 
 func AddInstance(client *etcd.Client, i *Instance) error {
-	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/haproxy/%s/%s",
 		i.Cluster, i.Proto, i.Service), i.Prefix)
 
 	var key string
@@ -48,7 +48,7 @@ func AddInstance(client *etcd.Client, i *Instance) error {
 }
 
 func RemoveInstance(client *etcd.Client, i *Instance) error {
-	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/haproxy/%s/%s",
 		i.Cluster, i.Proto, i.Service), i.Prefix)
 
 	var key string

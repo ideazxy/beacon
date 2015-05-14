@@ -19,7 +19,7 @@ type Service struct {
 }
 
 func AddService(client *etcd.Client, s *Service) error {
-	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/haproxy/%s/%s",
 		s.Cluster, s.Proto, s.Name), s.Prefix)
 
 	k := basekey + "/listen"
@@ -48,7 +48,7 @@ func AddService(client *etcd.Client, s *Service) error {
 }
 
 func RemoveService(client *etcd.Client, s *Service) error {
-	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s",
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/haproxy/%s",
 		s.Cluster, s.Proto), s.Prefix)
 
 	var key string
