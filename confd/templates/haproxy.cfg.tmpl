@@ -33,34 +33,34 @@ defaults
         errorfile 503 /etc/haproxy/errors/503.http
         errorfile 504 /etc/haproxy/errors/504.http
 
-{{range $name := ls "/http"}}
+{{range $name := ls "/haproxy/http"}}
 frontend {{$name}}
         mode http
         option httplog
-        bind {{printf "/http/%s/listen" $name | getv}}
-        {{range $backend := ls (printf "/http/%s/backends" $name)}}
-        {{range $host := ls (printf "/http/%s/backends/%s/hosts" $name $backend)}}
+        bind {{printf "/haproxy/http/%s/listen" $name | getv}}
+        {{range $backend := ls (printf "/haproxy/http/%s/backends" $name)}}
+        {{range $host := ls (printf "/haproxy/http/%s/backends/%s/hosts" $name $backend)}}
         acl acl_{{$backend}} hdr(host),lower {{$host}}
         {{end}}
         use_backend {{$backend}} if acl_{{$backend}}
         {{end}}
 
-{{range $backend := ls (printf "/http/%s/backends" $name)}}
+{{range $backend := ls (printf "/haproxy/http/%s/backends" $name)}}
 backend {{$backend}}
         balance roundrobin
-        {{range $upstream := ls (printf "/http/%s/backends/%s/upstreams" $name $backend)}}
-        server {{$upstream}} {{printf "/http/%s/backends/%s/upstreams/%s/listen" $name $backend $upstream | getv}} cookie A check
+        {{range $upstream := ls (printf "/haproxy/http/%s/backends/%s/upstreams" $name $backend)}}
+        server {{$upstream}} {{printf "/haproxy/http/%s/backends/%s/upstreams/%s/listen" $name $backend $upstream | getv}} cookie A check
         {{end}}
 {{end}}
 {{end}}
 
-{{range $name := ls "/tcp"}}
+{{range $name := ls "/haproxy/tcp"}}
 listen {{$name}}
         mode tcp
         option tcplog
-        bind {{printf "/tcp/%s/listen" $name | getv}}
-        {{range $upstream := ls (printf "/tcp/%s/upstreams" $name)}}
-        server {{$upstream}} {{printf "/tcp/%s/upstreams/%s/listen" $name $upstream | getv}} check inter 5s
+        bind {{printf "/haproxy/tcp/%s/listen" $name | getv}}
+        {{range $upstream := ls (printf "/haproxy/tcp/%s/upstreams" $name)}}
+        server {{$upstream}} {{printf "/haproxy/tcp/%s/upstreams/%s/listen" $name $upstream | getv}} check inter 5s
         {{end}}
 {{end}}
 

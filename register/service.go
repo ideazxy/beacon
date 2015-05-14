@@ -19,10 +19,14 @@ type Service struct {
 }
 
 func AddService(client *etcd.Client, s *Service) error {
-	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s/%s",
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/haproxy/%s/%s",
 		s.Cluster, s.Proto, s.Name), s.Prefix)
 
 	k := basekey + "/listen"
+	log.WithFields(log.Fields{
+		"key":   k,
+		"value": s.Listen,
+	}).Debugln("start to add a new service key.")
 	if _, err := client.Set(k, s.Listen, 0); err != nil {
 		return err
 	}
@@ -34,6 +38,10 @@ func AddService(client *etcd.Client, s *Service) error {
 		hostDir := fmt.Sprintf("%s/backends/%s/hosts", basekey, s.Backend)
 		if s.Hosts != nil {
 			for _, host := range s.Hosts {
+				log.WithFields(log.Fields{
+					"key":  hostDir,
+					"host": host,
+				}).Debugln("register new host.")
 				if _, err := client.Set(fmt.Sprintf("%s/%s", hostDir, host), "", 0); err != nil {
 					return err
 				}
@@ -41,14 +49,17 @@ func AddService(client *etcd.Client, s *Service) error {
 		}
 	}
 	log.WithFields(log.Fields{
-		"key":   k,
-		"value": s.Listen,
-	}).Infoln("registered new service.")
+		"name":    s.Name,
+		"backend": s.Backend,
+		"proto":   s.Proto,
+		"listen":  s.Listen,
+		"hosts":   s.Hosts,
+	}).Infoln("service registered.")
 	return nil
 }
 
 func RemoveService(client *etcd.Client, s *Service) error {
-	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/%s",
+	basekey := appendPrefix(fmt.Sprintf("/beacon/registry/%s/haproxy/%s",
 		s.Cluster, s.Proto), s.Prefix)
 
 	var key string
@@ -58,12 +69,17 @@ func RemoveService(client *etcd.Client, s *Service) error {
 		key = fmt.Sprintf("%s/%s/backends/%s", basekey, s.Name, s.Backend)
 	}
 
+	log.WithFields(log.Fields{
+		"key": key,
+	}).Debugln("start to delete a service key.")
 	if _, err := client.Delete(key, true); err != nil {
 		return err
 	}
 	log.WithFields(log.Fields{
-		"key": key,
-	}).Infoln("unregister service.")
+		"name":    s.Name,
+		"backend": s.Backend,
+		"proto":   s.Proto,
+	}).Infoln("service unregistered.")
 
 	return nil
 }

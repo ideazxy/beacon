@@ -16,6 +16,7 @@ func NewStartCmd() cli.Command {
 		Flags: []cli.Flag{
 			cli.StringSliceFlag{Name: "env, e", Value: &cli.StringSlice{}, Usage: "set container environment variables"},
 			cli.StringSliceFlag{Name: "volume, v", Value: &cli.StringSlice{}, Usage: "bind mount a volumn"},
+			cli.StringSliceFlag{Name: "add-host", Value: &cli.StringSlice{}, Usage: "add a custom host-to-IP mapping (host:ip)"},
 			cli.StringFlag{Name: "service", Usage: "set service name"},
 			cli.StringFlag{Name: "backend", Usage: "set backend name (only for http service)"},
 			cli.StringFlag{Name: "proto", Value: "tcp", Usage: "set service protocol, 'tcp' or 'http'"},
@@ -47,6 +48,7 @@ func doStart(c *cli.Context, client *etcd.Client) {
 		Image:       appendTag(c.Args()[0]),
 		Env:         c.StringSlice("env"),
 		Vol:         c.StringSlice("volume"),
+		ExtraHosts:  c.StringSlice("add-host"),
 		Listen:      c.String("port"),
 		Service:     c.String("service"),
 		Backend:     c.String("backend"),
