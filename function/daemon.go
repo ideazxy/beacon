@@ -123,16 +123,21 @@ func register(client *etcd.Client, cluster, name, ip string) {
 }
 
 func registerHost(client *etcd.Client, hostKey, ip string) {
-	key := fmt.Sprintf("%s/ip", hostKey)
-	if _, err := client.CreateDir(hostKey, HOST_TTL); err != nil {
+	if _, err := client.Get(hostKey, false, false); err != nil {
+		if _, err := client.CreateDir(hostKey, HOST_TTL); err != nil {
+			log.WithFields(log.Fields{
+				"dir":   hostKey,
+				"error": err.Error(),
+			}).Fatalln("register host failed.")
+		}
 		log.WithFields(log.Fields{
-			"dir":   hostKey,
-			"error": err.Error(),
-		}).Fatalln("register host failed.")
+			"dir": hostKey,
+		}).Infoln("register new host.")
+	} else {
+		log.Infoln("host already exists.")
 	}
-	log.WithFields(log.Fields{
-		"dir": hostKey,
-	}).Infoln("register new host.")
+
+	key := fmt.Sprintf("%s/ip", hostKey)
 	if _, err := client.Set(key, ip, 0); err != nil {
 		log.WithFields(log.Fields{
 			"key":   key,
