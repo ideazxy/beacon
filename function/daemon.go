@@ -8,7 +8,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/ideazxy/beacon/command"
+	reg "github.com/ideazxy/beacon/register"
 )
 
 const (
@@ -26,6 +28,7 @@ func NewDaemonCmd() cli.Command {
 			cli.StringFlag{Name: "ip", Value: "127.0.0.1", Usage: "set host IP"},
 			cli.StringSliceFlag{Name: "add-host", Value: &cli.StringSlice{}, Usage: "add a custom host-to-IP mapping (host:ip)"},
 			cli.IntFlag{Name: "interval", Value: 5, Usage: "set interval seconds"},
+			cli.BoolFlag{Name: "watch", Usage: "set watch mode"},
 			cli.StringFlag{Name: "docker", Value: "unix:///var/run/docker.sock", Usage: "set docker daemon"},
 			cli.BoolFlag{Name: "tls", Usage: "set tls mode for docker daemon"},
 			cli.StringFlag{Name: "cert", Usage: "set cert directory for docker daemon if tls flag is set"},
@@ -142,6 +145,29 @@ func registerHost(client *etcd.Client, hostKey, ip string) {
 	}).Infoln("set IP for host.")
 }
 
+func monitor(dcClient *docker.Client, etClient *etcd.Client, cluster string) {
+	listener := make(chan *docker.APIEvents)
+	if err := dcClient.AddEventListener(listener); err != nil {
+		log.Fatalln(err.Error())
+	}
+	for {
+		select {
+		case event := <-listener:
+			if event.Status == "stop" || event.Status == "kill" {
+				log.WithFields(log.Fields{
+					"id":     event.ID,
+					"status": event.Status,
+					"from":   event.From,
+				}).Debugln("capture new event.")
+
+				if err := reg.FindAndRemoveInstance(etClient, cluster, prefix, event.ID); err != nil {
+					log.Errorln(err.Error())
+				}
+			}
+		}
+	}
+}
+
 func doDaemon(c *cli.Context, client *etcd.Client) {
 	log.WithFields(log.Fields{
 		"hostName": c.String("name"),
@@ -149,6 +175,8 @@ func doDaemon(c *cli.Context, client *etcd.Client) {
 	}).Infoln("beacond start.")
 
 	go register(client, c.String("cluster"), c.String("name"), c.String("ip"))
+
+	go monitor(dockerClient(c), client, c.String("cluster"))
 
 	for {
 		commands := check(client, c.String("name"))
